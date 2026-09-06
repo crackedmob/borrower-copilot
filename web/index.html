@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Borrower Copilot</title>
+<style>
+  :root{ --ink:#1a1a1a; --muted:#666; --line:#ddd; --accent:#2b6cb0; --bad:#b23a2f; --good:#2f8a4a; --warn:#a86d1c; --bg:#fafafa; }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px 16px 80px;color:var(--ink);background:var(--bg)}
+  h1{font-size:1.4rem;margin-bottom:4px}
+  .sub{color:var(--muted);margin-top:0;margin-bottom:24px;font-size:.95rem}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
+  label{display:block;font-size:.9rem;font-weight:600;margin:14px 0 6px}
+  label.sub-label{font-weight:400;color:var(--muted);font-size:.85rem}
+  input[type=number], input[type=text], select{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;font-size:1rem}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+  .skip{display:flex;align-items:center;gap:6px;font-weight:400;color:var(--muted);font-size:.85rem;margin-top:4px}
+  button{background:var(--accent);color:#fff;border:none;padding:12px 20px;border-radius:6px;font-size:1rem;cursor:pointer;margin-top:20px}
+  button.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  .hidden{display:none}
+  .verdict{font-size:1.3rem;font-weight:700;padding:14px;border-radius:8px;margin-bottom:16px}
+  .verdict.borrow{background:#e8f5ec;color:var(--good)}
+  .verdict.borrow_less{background:#fdf3e3;color:var(--warn)}
+  .verdict.dont_borrow{background:#fbeae8;color:var(--bad)}
+  .outrow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+  .outrow:last-child{border-bottom:none}
+  .outrow .k{color:var(--muted);font-size:.9rem}
+  .outrow .v{font-weight:600;text-align:right}
+  ul.explain{padding-left:18px;font-size:.9rem;color:#333}
+  ul.explain li{margin-bottom:8px}
+  .card-title{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px}
+  .neg-card{border:2px dashed var(--accent);}
+  .req{color:var(--bad);font-weight:700;margin-left:2px}
+  .legend{font-size:.8rem;color:var(--bad);margin:-4px 0 16px}
+  /* Remove the number spinner AND stop scroll-to-change: the up/down arrows
+     stay (still useful), but scrolling the page while the cursor happens to
+     be over a number field no longer silently edits the value. */
+  input[type=number]{-moz-appearance:textfield}
+</style>
+</head>
+<body>
+  <h1>Borrower Copilot</h1>
+  <p class="sub">Answer a few questions. Get a verdict, a fair amount, a fair rate, and an EMI you shouldn't cross — before you walk into a lender.</p>
+ 
+  <!-- STEP 1: MUST QUESTIONS -->
+  <div class="card" id="step1">
+    <div class="card-title">Step 1 of 3 — the essentials</div>
+    <p class="legend">* Required — has a direct, significant effect on your results</p>
+    <div id="step1Errors" class="hidden" style="color:var(--bad);background:#fbeae8;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:.9rem"></div>
+ 
+    <label>What's the loan for?<span class="req">*</span></label>
+    <select id="purpose">
+      <option value="" selected>Choose one</option>
+      <option value="wedding">Wedding</option>
+      <option value="medical">Medical</option>
+      <option value="home">Home purchase / construction</option>
+      <option value="business">Business</option>
+      <option value="vehicle">Vehicle (incl. two-wheeler/EV)</option>
+      <option value="other">Other</option>
+    </select>
+ 
+    <label>How much do you want to borrow? (₹)<span class="req">*</span></label>
+    <input type="number" id="requested_amount" placeholder="e.g. 800000">
+ 
+    <label>How would you describe your income?<span class="req">*</span></label>
+    <select id="income_type">
+      <option value="" selected>Choose one</option>
+      <option value="salaried">Salaried</option>
+      <option value="self_employed">Self-employed (have ITR / formal records)</option>
+      <option value="informal">Informal / cash / gig work</option>
+    </select>
+ 
+    <label>Net monthly income (₹, take-home)<span class="req">*</span></label>
+    <input type="number" id="net_monthly_income" placeholder="e.g. 60000">
+ 
+    <label>Total of ALL existing EMIs per month (₹)<span class="req">*</span></label>
+    <label class="sub-label">Car loan, other personal loans, credit card minimums — add them up. Enter 0 if none.</label>
+    <input type="number" id="existing_emis" value="0">
+ 
+    <label>Monthly household expenses (₹)<span class="req">*</span></label>
+    <label class="sub-label">Rent, groceries, school fees, everything you spend to live — not debt.</label>
+    <input type="number" id="household_expenses" placeholder="e.g. 25000">
+ 
+    <label>Your age<span class="req">*</span></label>
+    <input type="number" id="age" placeholder="e.g. 30">
+ 
+    <label>Credit score<span class="req">*</span></label>
+    <div class="row">
+      <select id="credit_score_known" onchange="toggleScoreInput()">
+        <option value="yes">I know it</option>
+        <option value="no">I don't know / don't have one</option>
+      </select>
+      <input type="number" id="credit_score_value" placeholder="e.g. 750">
+    </div>
+ 
+    <button type="button" onclick="handleStep1Submit()">Continue</button>
+  </div>
+ 
+  <!-- STEP 2: ADAPTIVE ADDITIONAL QUESTIONS -->
+  <div class="card hidden" id="step2">
+    <div class="card-title">Step 2 of 3 — a few more, only if they help</div>
+    <p class="sub" style="margin-bottom:16px">Each of these narrows your range. Skip anything you'd rather not answer — the app will just stay more cautious there.</p>
+    <div id="additionalQuestions"></div>
+    <button onclick="calculate(event)">See my results</button>
+    <button class="secondary" onclick="showStep(1)">Back</button>
+  </div>
+ 
+  <!-- STEP 3: RESULTS -->
+  <div class="card hidden" id="step3"></div>
+ 
+  <div class="card hidden" id="negotiation"></div>
+ 
+<script>
+function toggleScoreInput(){
+  const known = document.getElementById('credit_score_known').value === 'yes';
+  const scoreInput = document.getElementById('credit_score_value');
+  scoreInput.style.display = known ? 'block' : 'none';
+  scoreInput.required = known; // only force an actual score when they said they know it
+}
+toggleScoreInput();
+ 
+// Blur any number input the instant the page is scrolled while it's
+// focused — this is what stops "scrolling the page" from silently
+// incrementing/decrementing whatever number field the cursor is over.
+document.addEventListener('wheel', function(e){
+  const el = document.activeElement;
+  if (el && el.tagName === 'INPUT' && el.type === 'number') {
+    el.blur();
+  }
+}, { passive: true });
+ 
+function showStep(n){
+  [1,2,3].forEach(i => document.getElementById('step'+i).classList.toggle('hidden', i!==n));
+  document.getElementById('negotiation').classList.add('hidden');
+}
+ 
+// Fully clears every field back to its original empty/default state —
+// used by "Start over" so no answer from a previous run carries forward.
+function resetForm(){
+  document.getElementById('purpose').selectedIndex = 0;
+  document.getElementById('requested_amount').value = '';
+  document.getElementById('income_type').selectedIndex = 0;
+  document.getElementById('net_monthly_income').value = '';
+  document.getElementById('existing_emis').value = '0';
+  document.getElementById('household_expenses').value = '';
+  document.getElementById('age').value = '';
+  document.getElementById('credit_score_known').selectedIndex = 0;
+  document.getElementById('credit_score_value').value = '';
+  toggleScoreInput();
+  document.getElementById('additionalQuestions').innerHTML = '';
+  document.getElementById('step3').innerHTML = '';
+  document.getElementById('negotiation').innerHTML = '';
+  window.__applicableCount = 0;
+  showStep(1);
+}
+ 
+const step1Labels = {
+  purpose: "loan purpose", requested_amount: "amount you want to borrow",
+  income_type: "income type", net_monthly_income: "net monthly income",
+  existing_emis: "existing EMIs", household_expenses: "household expenses",
+  age: "age", credit_score_value: "your credit score number"
+};
+ 
+function handleStep1Submit(){
+  const errBox = document.getElementById('step1Errors');
+  const missing = [];
+ 
+  if (val('purpose') === '') missing.push(step1Labels.purpose);
+  if (val('requested_amount') === '' || Number(val('requested_amount')) <= 0) missing.push(step1Labels.requested_amount);
+  if (val('income_type') === '') missing.push(step1Labels.income_type);
+  if (val('net_monthly_income') === '' || Number(val('net_monthly_income')) <= 0) missing.push(step1Labels.net_monthly_income);
+  if (val('existing_emis') === '') missing.push(step1Labels.existing_emis);
+  if (val('household_expenses') === '') missing.push(step1Labels.household_expenses);
+  if (val('age') === '' || Number(val('age')) <= 0) missing.push(step1Labels.age);
+  if (val('credit_score_known') === 'yes' && val('credit_score_value') === '') missing.push(step1Labels.credit_score_value);
+ 
+  if (missing.length){
+    errBox.classList.remove('hidden');
+    errBox.innerHTML = '<b>Please fill in before continuing:</b> ' + missing.join(', ') + '.';
+    errBox.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  errBox.classList.add('hidden');
+  goToStep2();
+}
+ 
+function goToStep2(){
+  const incomeType = document.getElementById('income_type').value;
+  const container = document.getElementById('additionalQuestions');
+  container.innerHTML = '';
+ 
+  const questions = [];
+  questions.push({id:'income_stable_years', label:'How many years have you had this income?', type:'number', placeholder:'e.g. 5'});
+  questions.push({id:'recent_bounce', label:'Has any EMI or payment bounced in the last 12 months?', type:'bool', important:true});
+  questions.push({id:'has_collateral', label:'Do you have property or gold you could pledge?', type:'bool', reveals:'collateral_value', important:true});
+  questions.push({id:'collateral_value', label:'Estimated value of that collateral (₹)', type:'number', hidden:true});
+  if (incomeType !== 'salaried'){
+    questions.push({id:'undeclared_cash_income', label:'Any additional cash income not shown in your ITR/records? (₹/month)', type:'number', placeholder:'0 if none'});
+  }
+  questions.push({id:'has_co_applicant', label:'Applying with a co-applicant?', type:'bool', reveals:'co_applicant_income'});
+  questions.push({id:'co_applicant_income', label:"Co-applicant's net monthly income (₹)", type:'number', hidden:true});
+  questions.push({id:'emergency_savings_months', label:'How many months of expenses do you have in savings?', type:'number', placeholder:'e.g. 2'});
+  questions.push({id:'upcoming_large_expense', label:'Any large expense coming up in the next year? (₹, total)', type:'number', placeholder:'0 if none'});
+ 
+  window.__applicableCount = questions.filter(q => !q.hidden).length;
+ 
+  questions.forEach(q => {
+    const wrap = document.createElement('div');
+    wrap.id = 'q_' + q.id;
+    if (q.hidden) wrap.classList.add('hidden');
+    wrap.innerHTML = `<label>${q.label}${q.important ? '<span class="req">*</span>' : ''}</label>` +
+      (q.important ? `<p class="sub-label" style="color:var(--bad);margin-top:-4px">This can change your verdict entirely — please don't skip if it applies.</p>` : '') +
+      (q.type === 'bool'
+        ? `<select id="${q.id}"><option value="">Skip</option><option value="yes">Yes</option><option value="no">No</option></select>`
+        : `<input type="number" id="${q.id}" placeholder="${q.placeholder||''}">`);
+    container.appendChild(wrap);
+    if (q.reveals){
+      document.getElementById(q.id).addEventListener('change', (e)=>{
+        document.getElementById('q_'+q.reveals).classList.toggle('hidden', e.target.value !== 'yes');
+      });
+    }
+  });
+ 
+  showStep(2);
+}
+ 
+function val(id){ const el = document.getElementById(id); return el ? el.value : ''; }
+function num(id){ const v = val(id); return v === '' ? 0 : parseFloat(v); }
+function boolAnswered(id){ return val(id) !== ''; }
+function boolVal(id){ return val(id) === 'yes'; }
+ 
+async function calculate(event){
+  const scoreKnown = val('credit_score_known') === 'yes';
+  const additionalIds = ['income_stable_years','recent_bounce','has_collateral','undeclared_cash_income','has_co_applicant','emergency_savings_months','upcoming_large_expense'];
+  let answered = 0;
+  additionalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return; // not shown for this borrower type
+    if (val(id) !== '') answered++;
+  });
+ 
+  const input = {
+    net_monthly_income: num('net_monthly_income'),
+    income_type: val('income_type'),
+    existing_emis: num('existing_emis'),
+    household_expenses: num('household_expenses'),
+    requested_amount: num('requested_amount'),
+    purpose: val('purpose'),
+    age: parseInt(val('age')||'0'),
+    credit_score: { known: scoreKnown, score: scoreKnown ? parseInt(val('credit_score_value')||'0') : 0 },
+ 
+    has_collateral: boolVal('has_collateral'),
+    collateral_value: num('collateral_value'),
+    recent_bounce: boolVal('recent_bounce'),
+    income_stable_years: num('income_stable_years'),
+    has_co_applicant: boolVal('has_co_applicant'),
+    co_applicant_income: num('co_applicant_income'),
+    emergency_savings_months: num('emergency_savings_months'),
+    undeclared_cash_income: num('undeclared_cash_income'),
+    upcoming_large_expense: num('upcoming_large_expense'),
+    questions_answered: answered,
+    questions_applicable: window.__applicableCount || additionalIds.length,
+  };
+ 
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.textContent = 'Calculating...';
+  btn.disabled = true;
+ 
+  try {
+    const res = await fetch('/api/calculate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(input) });
+    if (!res.ok){
+      const text = await res.text();
+      throw new Error('Server returned ' + res.status + ': ' + text);
+    }
+    const out = await res.json();
+    renderResults(input, out);
+  } catch (err) {
+    alert('Something went wrong calling the server:\n\n' + err.message + '\n\nCheck that "go run ." is still running in your terminal, then try again.');
+    console.error(err);
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+ 
+function inr(n){ return '₹' + Math.round(n).toLocaleString('en-IN'); }
+ 
+const verdictLabel = { borrow: "Borrow", borrow_less: "Borrow Less", dont_borrow: "Don't Borrow" };
+const productLabel = { personal_loan:"Personal Loan", home_loan:"Home Loan", loan_against_property:"Loan Against Property", gold_loan:"Gold Loan", business_loan:"Business Loan", vehicle_loan:"Vehicle Loan" };
+ 
+function renderResults(input, out){
+  const step3 = document.getElementById('step3');
+  step3.innerHTML = `
+    <div class="card-title">Step 3 of 3 — your results</div>
+    <div class="verdict ${out.verdict}">${verdictLabel[out.verdict]}</div>
+    <div class="outrow"><span class="k">Recommended product</span><span class="v">${productLabel[out.product]}</span></div>
+    <div class="outrow"><span class="k">Lender likely sanctions</span><span class="v">${inr(out.lender_sanction_amount)}</span></div>
+    <div class="outrow"><span class="k">You can safely carry</span><span class="v">${inr(out.borrower_safe_amount)}</span></div>
+    <div class="outrow"><span class="k">Fair rate band</span><span class="v">${out.rate_low.toFixed(2)}% - ${out.rate_high.toFixed(2)}%</span></div>
+    <div class="outrow"><span class="k">All-in cost (APR)</span><span class="v">${out.apr_low.toFixed(2)}% - ${out.apr_high.toFixed(2)}%</span></div>
+    <div class="outrow"><span class="k">Suggested tenure</span><span class="v">${out.tenure_years} years</span></div>
+    <div class="outrow"><span class="k">Monthly EMI ceiling</span><span class="v">${inr(out.emi_ceiling)}</span></div>
+    <div class="outrow"><span class="k">Stress: if rate rises 2pp</span><span class="v">${inr(out.stress_emi)}/mo</span></div>
+    <div class="outrow"><span class="k">Stress: EMI vs income if income drops 20%</span><span class="v">${out.stress_income_drop_pct.toFixed(0)}%</span></div>
+    ${out.confidence_low ? '<p style="color:var(--warn);font-size:.85rem;margin-top:10px">⚠ Wide range — answering more questions in Step 2 would narrow this.</p>' : ''}
+    <p class="card-title" style="margin-top:18px">Why</p>
+    <ul class="explain">${out.explanations.map(e => '<li>'+e+'</li>').join('')}</ul>
+    <button onclick="showNegotiationCard(${JSON.stringify(out).replace(/"/g,'&quot;')})">Show Negotiation Card</button>
+    <button class="secondary" onclick="resetForm()">Start over</button>
+  `;
+  showStep(3);
+}
+ 
+function showNegotiationCard(out){
+  const card = document.getElementById('negotiation');
+  card.classList.remove('hidden');
+  card.classList.add('neg-card');
+  if (out.verdict === 'dont_borrow'){
+    card.innerHTML = `
+      <div class="card-title">Before you talk to any lender</div>
+      <p style="font-size:1.1rem;font-weight:700;margin:6px 0">This isn't a good time to take on this loan.</p>
+      <p style="font-size:.9rem;color:var(--muted)">${out.explanations[0] || ''}</p>
+      <p style="font-size:.85rem;margin-top:10px">Focus on clearing existing obligations or rebuilding a payment history first — a lender is likely to see the same red flags this app did.</p>
+    `;
+    return;
+  }
+  card.innerHTML = `
+    <div class="card-title">Negotiation Card — show this to your lender</div>
+    <p style="font-size:1.1rem;font-weight:700;margin:6px 0">Fair rate for my profile: ${out.rate_low.toFixed(2)}% – ${out.rate_high.toFixed(2)}% (APR ${out.apr_low.toFixed(2)}%–${out.apr_high.toFixed(2)}%)</p>
+    <p style="font-size:.9rem;color:var(--muted)">Product: ${productLabel[out.product]} · Tenure: ${out.tenure_years} yrs · I shouldn't pay more than ${inr(out.emi_ceiling)}/month</p>
+    <p style="font-size:.85rem;margin-top:10px">${out.explanations[1] || ''}</p>
+  `;
+}
+</script>
+</body>
+</html>
